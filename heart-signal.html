@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>心动的信号 · 手机网页版</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #f3d9c2;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* 手机卡片容器 */
+    .phone-frame {
+      width: 375px;
+      height: 667px;
+      background: #fff5e8;
+      border-radius: 40px;
+      overflow: hidden;
+      box-shadow: 0 30px 50px rgba(90, 50, 20, 0.3);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      border: 6px solid #f2cfb0;
+    }
+
+    /* 固定头部 */
+    .app-header {
+      background: #ffb6c1;
+      padding: 24px 0 12px;
+      text-align: center;
+      color: white;
+      font-size: 26px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-shadow: 2px 2px 0 #f08a9d;
+      flex-shrink: 0;
+    }
+
+    .sub-header {
+      background: #fce2c1;
+      padding: 5px;
+      text-align: center;
+      font-size: 13px;
+      color: #b45f3a;
+      border-bottom: 1px dashed #dba978;
+      flex-shrink: 0;
+    }
+
+    /* 页面容器 (滑动区域) */
+    .page-container {
+      flex: 1;
+      overflow-y: auto;
+      position: relative;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* 两个页面 (首页 / 添加页) 通过切换类显示 */
+    .page {
+      display: none;
+      padding: 18px 16px 30px;
+      min-height: 100%;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    /* ---------- 首页抽签 ---------- */
+    .bucket-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 20px;
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .bucket {
+      position: relative;
+      width: 280px;
+      height: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .bucket-emoji {
+      font-size: 130px;
+      line-height: 1;
+      margin-bottom: -20px;
+      filter: drop-shadow(0 8px 10px rgba(140, 80, 30, 0.3));
+    }
+
+    .sticks-area {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      margin-top: -35px;
+    }
+
+    .stick {
+      position: absolute;
+      bottom: 15px;
+      width: 10px;
+      background: linear-gradient(145deg, #c9a87c, #9c6f4b);
+      border-radius: 5px 5px 0 0;
+      transform-origin: bottom center;
+      box-shadow: 0 4px 5px rgba(0,0,0,0.2);
+      transition: all 0.1s;
+    }
+
+    .hint-text {
+      font-size: 15px;
+      color: #b08365;
+      background: rgba(255, 250, 235, 0.8);
+      padding: 8px 25px;
+      border-radius: 40px;
+      border: 1px solid #eaccb5;
+      margin: 25px 0 15px;
+    }
+
+    /* 浮动飞签 (动画) */
+    .fly-stick {
+      position: fixed;
+      width: 12px;
+      height: 70px;
+      background: linear-gradient(145deg, #dbb48b, #a5714f);
+      border-radius: 6px 6px 0 0;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+      pointer-events: none;
+      z-index: 200;
+      transform-origin: bottom center;
+      animation: flyAway 0.5s ease-out forwards;
+    }
+
+    @keyframes flyAway {
+      0% { transform: rotate(0deg) translateY(0) scale(1); opacity: 1; }
+      30% { transform: rotate(-30deg) translateX(-40px) translateY(-50px) scale(0.8); opacity: 0.9; }
+      100% { transform: rotate(-60deg) translateX(-120px) translateY(-180px) scale(0.2); opacity: 0; }
+    }
+
+    /* 卡片浮层 */
+    .card-mask {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      animation: fadeIn 0.2s;
+      backdrop-filter: blur(3px);
+    }
+
+    .card-content {
+      width: 300px;
+      background: #fff9ef;
+      border-radius: 40px;
+      padding: 40px 25px;
+      box-shadow: 0 20px 30px rgba(160, 90, 40, 0.4);
+      border: 3px solid #f5d3b5;
+      transform: scale(1);
+      animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      text-align: center;
+    }
+
+    .topic-flower {
+      font-family: 'KaiTi', '华文楷体', 'cursive', serif;
+      font-size: 30px;
+      color: #b45a3b;
+      line-height: 1.4;
+      text-shadow: 2px 2px 0 #ffdac5, 3px 3px 0 rgba(255, 160, 100, 0.3);
+      margin-bottom: 30px;
+      word-break: break-word;
+    }
+
+    .close-btn {
+      background: #ffaaa5;
+      border: none;
+      color: white;
+      font-size: 18px;
+      padding: 12px 30px;
+      border-radius: 50px;
+      width: fit-content;
+      margin: 0 auto;
+      box-shadow: 0 5px 0 #c06b5a;
+      transition: 0.1s;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .close-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 1px 0 #c06b5a;
+    }
+
+    /* ---------- 底部导航 ---------- */
+    .bottom-nav {
+      display: flex;
+      background: #ffeada;
+      border-top: 2px solid #f5c9ae;
+      padding: 8px 0;
+      flex-shrink: 0;
+    }
+
+    .nav-item {
+      flex: 1;
+      text-align: center;
+      padding: 8px 0;
+      font-size: 16px;
+      color: #a7623c;
+      cursor: pointer;
+      transition: 0.2s;
+      border-radius: 30px;
+      margin: 0 6px;
+    }
+
+    .nav-item.active {
+      background: #ffceb4;
+      color: #884a2d;
+      font-weight: 500;
+    }
+
+    /* ---------- 添加话题页 ---------- */
+    .add-title {
+      font-size: 26px;
+      font-weight: 600;
+      color: #b45a3b;
+      text-align: center;
+      margin: 15px 0 5px;
+    }
+
+    .add-tip {
+      font-size: 14px;
+      color: #a17a60;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .topic-textarea {
+      width: 100%;
+      min-height: 180px;
+      background: #fffcf5;
+      border-radius: 24px;
+      padding: 18px;
+      font-size: 16px;
+      color: #3b2a1e;
+      border: 2px solid #ebc7a8;
+      margin-bottom: 25px;
+      resize: none;
+      line-height: 1.5;
+    }
+
+    .btn-group {
+      display: flex;
+      justify-content: space-around;
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+
+    .btn-save, .btn-back-home {
+      flex: 1;
+      background: #ffaaa5;
+      color: white;
+      border: none;
+      font-size: 18px;
+      padding: 14px 0;
+      border-radius: 40px;
+      box-shadow: 0 5px 0 #c06b5a;
+      cursor: pointer;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .btn-back-home {
+      background: #f5d3b5;
+      color: #7a543c;
+      box-shadow: 0 5px 0 #b7805a;
+    }
+
+    .btn-save:active, .btn-back-home:active {
+      transform: translateY(4px);
+      box-shadow: none;
+    }
+
+    .preview-area {
+      background: #faebdd;
+      border-radius: 24px;
+      padding: 18px;
+      border: 2px dashed #d99e6f;
+    }
+
+    .preview-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #9b6e52;
+      margin-bottom: 12px;
+    }
+
+    .preview-item {
+      font-size: 16px;
+      color: #63422e;
+      padding: 8px 0;
+      border-bottom: 1px solid #eaccb5;
+      word-break: break-word;
+    }
+
+    .preview-item:last-child {
+      border-bottom: none;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; } to { opacity: 1; }
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.6); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    /* 一些微调 */
+    .footer-nav-placeholder {
+      height: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="phone-frame" id="app">
+    <div class="app-header">心动的信号</div>
+    <div class="sub-header">摇晃手机 或 点击签筒抽签</div>
+
+    <!-- 页面容器：两个页面切换 -->
+    <div class="page-container" id="pageContainer">
+      <!-- 首页抽签 -->
+      <div class="page active" id="homePage">
+        <div class="bucket-wrapper" id="bucketWrapper">
+          <div class="bucket" id="bucket">
+            <div class="bucket-emoji">🧺</div>
+            <div class="sticks-area" id="sticksContainer">
+              <!-- 签子由js动态渲染 -->
+            </div>
+          </div>
+          <div class="hint-text" id="clickHint">轻点签筒 或 摇一摇</div>
+        </div>
+
+        <!-- 抽签结果卡片会动态添加到 body 层级，此处占位 -->
+      </div>
+
+      <!-- 添加话题页 -->
+      <div class="page" id="addPage">
+        <div class="add-title">✏️ 手动添加话题</div>
+        <div class="add-tip">一行一条话题，自动识别分段</div>
+        <textarea class="topic-textarea" id="topicInput" placeholder="例如：&#10;你最近单曲循环的一首歌&#10;小时候做过最勇敢的事&#10;最想尝试的极限运动"></textarea>
+        <div class="btn-group">
+          <button class="btn-save" id="saveTopicsBtn">保存到话题库</button>
+          <button class="btn-back-home" id="backHomeBtn">返回抽签</button>
+        </div>
+        <div class="preview-area" id="previewArea" style="display: none;">
+          <div class="preview-title">将添加以下话题：</div>
+          <div id="previewList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+      <div class="nav-item active" data-page="home">🎋 抽签</div>
+      <div class="nav-item" data-page="add">📝 添加</div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // ----- 全局数据 -----
+      const STORAGE_KEY = 'heart_topics';
+      // 默认话题（符合要求）
+      const DEFAULT_TOPICS = [
+        "分享一件今天发生在办公室的趣事",
+        "你最近一次旅行最难忘的瞬间",
+        "推荐一部最近看过的好电影",
+        "你家乡最特别的风俗是什么？",
+        "你理想中的周末是什么样子？",
+        "你有什么坚持了三年以上的兴趣？",
+        "你和宠物之间最暖心的小故事",
+        "最近学会的一项新技能或小情趣",
+        "如果可以瞬间学会一门手艺，你想学什么？",
+        "你最喜欢的一处城市角落是哪里？",
+        "你最想尝试的一道异国料理",
+        "有没有一个习惯让你生活更有情趣？"
+      ];
+
+      // 当前话题池
+      let topics = [];
+
+      // 加载存储的话题，合并默认
+      function loadTopics() {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length) {
+              // 与默认合并去重（保留默认+用户添加）
+              const combined = [...DEFAULT_TOPICS, ...parsed];
+              topics = [...new Set(combined)];
+              return;
+            }
+          }
+        } catch (e) {}
+        topics = [...DEFAULT_TOPICS];
+      }
+      loadTopics();
+
+      // 保存话题（覆盖式存储全部，但保留默认和用户添加的合并结果）
+      function saveTopicsToStorage(newTopicsArray) {
+        // 与当前合并去重
+        const merged = [...topics, ...newTopicsArray];
+        topics = [...new Set(merged)];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(topics));
+      }
+
+      // ----- 页面元素 -----
+      const homePage = document.getElementById('homePage');
+      const addPage = document.getElementById('addPage');
+      const navItems = document.querySelectorAll('.nav-item');
+      const sticksContainer = document.getElementById('sticksContainer');
+      const bucketWrapper = document.getElementById('bucketWrapper');
+      const clickHint = document.getElementById('clickHint');
+      const topicInput = document.getElementById('topicInput');
+      const previewArea = document.getElementById('previewArea');
+      const previewList = document.getElementById('previewList');
+      const saveBtn = document.getElementById('saveTopicsBtn');
+      const backHomeBtn = document.getElementById('backHomeBtn');
+
+      // 当前状态
+      let stickCount = 8;                // 筒内签子数量
+      let animating = false;             // 是否正在抽签动画
+      let showCard = false;              // 是否显示卡片
+      let currentTopic = '';             // 当前抽到的话题
+      let lastShakeTime = 0;
+
+      // 渲染签子
+      function renderSticks() {
+        let html = '';
+        for (let i = 0; i < stickCount; i++) {
+          // 随机高度，但为了美观稍微变化
+          const height = 45 + (i % 3) * 8; // 45~69px
+          const left = 20 + i * 12; // 错开位置
+          html += `<div class="stick" style="height: ${height}px; left: ${left}px; bottom: 10px;"></div>`;
+        }
+        sticksContainer.innerHTML = html;
+      }
+
+      // 显示卡片
+      function showTopicCard(topic) {
+        if (showCard) return;
+        showCard = true;
+
+        // 创建遮罩
+        const mask = document.createElement('div');
+        mask.className = 'card-mask';
+        mask.id = 'topicCardMask';
+        mask.innerHTML = `
+          <div class="card-content">
+            <div class="topic-flower">${topic}</div>
+            <div class="close-btn" id="closeCardBtn">收起来</div>
+          </div>
+        `;
+        document.getElementById('app').appendChild(mask);
+
+        // 绑定收起事件
+        document.getElementById('closeCardBtn').addEventListener('click', function() {
+          mask.remove();
+          showCard = false;
+          // 重置签筒数量（如果抽完了就补满，视觉上恢复8根）
+          if (stickCount <= 0) stickCount = 8;
+          renderSticks();
+        });
+      }
+
+      // 抽签核心逻辑
+      function performDraw() {
+        if (animating || showCard) return;
+        if (topics.length === 0) {
+          alert('话题库为空，请先添加话题');
+          return;
+        }
+
+        animating = true;
+
+        // 随机选话题
+        const randomIndex = Math.floor(Math.random() * topics.length);
+        const pickedTopic = topics[randomIndex];
+
+        // 减少一根签子 (最少0)
+        if (stickCount > 0) {
+          stickCount--;
+        }
+        renderSticks();
+
+        // 创建飞签动画 (基于桶的位置)
+        const bucketRect = bucketWrapper.getBoundingClientRect();
+        const flyStick = document.createElement('div');
+        flyStick.className = 'fly-stick';
+        // 设置起始位置在桶上方
+        flyStick.style.left = (bucketRect.left + 130) + 'px';
+        flyStick.style.top = (bucketRect.top + 100) + 'px';
+        flyStick.style.position = 'fixed';
+        document.body.appendChild(flyStick);
+
+        // 动画结束后移除飞签
+        flyStick.addEventListener('animationend', function() {
+          flyStick.remove();
+        });
+
+        // 延迟400ms后显示卡片 (配合动画)
+        setTimeout(() => {
+          // 显示卡片
+          showTopicCard(pickedTopic);
+          animating = false;
+        }, 450); // 略大于动画时长
+      }
+
+      // 重置状态 (比如收起来后已经处理，但额外提供)
+      function resetAfterClose() {
+        // do nothing, 卡片关闭时已重置
+      }
+
+      // 监听摇一摇
+      function handleDeviceMotion(event) {
+        const acceleration = event.accelerationIncludingGravity;
+        if (!acceleration) return;
+        const now = Date.now();
+        const delta = 300; // 节流
+        if (now - lastShakeTime < delta) return;
+
+        const { x, y, z } = acceleration;
+        // 检测剧烈晃动 (阈值调低一点便于测试)
+        if (Math.abs(x) > 12 || Math.abs(y) > 12 || Math.abs(z) > 12) {
+          lastShakeTime = now;
+          performDraw();
+        }
+      }
+
+      // 添加摇一摇监听 (需用户交互？直接挂载)
+      if (window.DeviceMotionEvent) {
+        window.addEventListener('devicemotion', handleDeviceMotion);
+      } else {
+        clickHint.innerText = '此设备不支持摇一摇，请点击抽签';
+      }
+
+      // 点击桶抽签
+      bucketWrapper.addEventListener('click', function(e) {
+        e.stopPropagation();
+        performDraw();
+      });
+
+      // 导航切换
+      navItems.forEach(item => {
+        item.addEventListener('click', function() {
+          const page = this.dataset.page;
+          navItems.forEach(n => n.classList.remove('active'));
+          this.classList.add('active');
+
+          if (page === 'home') {
+            homePage.classList.add('active');
+            addPage.classList.remove('active');
+          } else {
+            homePage.classList.remove('active');
+            addPage.classList.add('active');
+            // 刷新预览（清空）
+            updatePreview();
+          }
+        });
+      });
+
+      // 返回首页按钮
+      backHomeBtn.addEventListener('click', function() {
+        // 切换到首页导航
+        navItems[0].click();
+      });
+
+      // 输入框预览
+      topicInput.addEventListener('input', function(e) {
+        updatePreview(e.target.value);
+      });
+
+      function updatePreview(text) {
+        const raw = text !== undefined ? text : topicInput.value;
+        const lines = raw.split('\n').map(line => line.trim()).filter(line => line !== '');
+        if (lines.length > 0) {
+          previewArea.style.display = 'block';
+          previewList.innerHTML = lines.map((line, idx) => `<div class="preview-item">${idx+1}. ${line}</div>`).join('');
+        } else {
+          previewArea.style.display = 'none';
+        }
+        return lines;
+      }
+
+      // 保存话题
+      saveBtn.addEventListener('click', function() {
+        const raw = topicInput.value;
+        const lines = raw.split('\n').map(line => line.trim()).filter(line => line !== '');
+        if (lines.length === 0) {
+          alert('请输入有效话题');
+          return;
+        }
+
+        // 去重合并
+        saveTopicsToStorage(lines);
+
+        // 提示成功
+        alert(`已添加 ${lines.length} 条话题`);
+
+        // 清空输入框和预览
+        topicInput.value = '';
+        previewArea.style.display = 'none';
+        previewList.innerHTML = '';
+
+        // 切换到首页 (可选)
+        // 不自动跳转，让用户手动选择
+      });
+
+      // 初始化渲染
+      renderSticks();
+
+      // 如果抽签过程中有人为点击卡片关闭，同步状态
+      // (卡片关闭事件由动态按钮处理，已在showTopicCard中处理移除并重置)
+
+      // 额外处理: 如果stickCount变为0，用户关闭卡片后我们会重置为8（已在卡片关闭时处理）
+      // 但是防止卡片未关闭但签筒空了的情况，在卡片关闭时重置
+
+      // 清理摇一摇 (页面卸载时)
+      window.addEventListener('beforeunload', function() {
+        window.removeEventListener('devicemotion', handleDeviceMotion);
+      });
+
+      // 由于演示需要，手动补充一些话题 (确保初始话题存在)
+      // 已加载
+
+      // 为nav点击增加活跃样式的默认行为
+    })();
+  </script>
+</body>
+</html>
