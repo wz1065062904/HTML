@@ -20,7 +20,6 @@
       font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
 
-    /* 手机卡片容器 */
     .phone-frame {
       width: 375px;
       height: 667px;
@@ -34,7 +33,6 @@
       border: 6px solid #f2cfb0;
     }
 
-    /* 固定头部 */
     .app-header {
       background: #ffb6c1;
       padding: 24px 0 12px;
@@ -57,7 +55,6 @@
       flex-shrink: 0;
     }
 
-    /* 页面容器 (滑动区域) */
     .page-container {
       flex: 1;
       overflow-y: auto;
@@ -66,7 +63,6 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    /* 两个页面 (首页 / 添加页) 通过切换类显示 */
     .page {
       display: none;
       padding: 18px 16px 30px;
@@ -133,7 +129,6 @@
       margin: 25px 0 15px;
     }
 
-    /* 浮动飞签 (动画) */
     .fly-stick {
       position: fixed;
       width: 12px;
@@ -153,7 +148,6 @@
       100% { transform: rotate(-60deg) translateX(-120px) translateY(-180px) scale(0.2); opacity: 0; }
     }
 
-    /* 卡片浮层 */
     .card-mask {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -331,11 +325,6 @@
       from { transform: scale(0.6); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
     }
-
-    /* 一些微调 */
-    .footer-nav-placeholder {
-      height: 5px;
-    }
   </style>
 </head>
 <body>
@@ -343,21 +332,16 @@
     <div class="app-header">心动的信号</div>
     <div class="sub-header">摇晃手机 或 点击签筒抽签</div>
 
-    <!-- 页面容器：两个页面切换 -->
     <div class="page-container" id="pageContainer">
       <!-- 首页抽签 -->
       <div class="page active" id="homePage">
         <div class="bucket-wrapper" id="bucketWrapper">
           <div class="bucket" id="bucket">
             <div class="bucket-emoji">🧺</div>
-            <div class="sticks-area" id="sticksContainer">
-              <!-- 签子由js动态渲染 -->
-            </div>
+            <div class="sticks-area" id="sticksContainer"></div>
           </div>
           <div class="hint-text" id="clickHint">轻点签筒 或 摇一摇</div>
         </div>
-
-        <!-- 抽签结果卡片会动态添加到 body 层级，此处占位 -->
       </div>
 
       <!-- 添加话题页 -->
@@ -376,7 +360,6 @@
       </div>
     </div>
 
-    <!-- 底部导航 -->
     <div class="bottom-nav">
       <div class="nav-item active" data-page="home">🎋 抽签</div>
       <div class="nav-item" data-page="add">📝 添加</div>
@@ -385,9 +368,10 @@
 
   <script>
     (function() {
-      // ----- 全局数据 -----
+      // ---------- 全局变量 ----------
       const STORAGE_KEY = 'heart_topics';
-      // 默认话题（符合要求）
+
+      // 默认话题库（已避开敏感内容，共40+个）
       const DEFAULT_TOPICS = [
         "分享一件今天发生在办公室的趣事",
         "你最近一次旅行最难忘的瞬间",
@@ -399,8 +383,6 @@
         "最近学会的一项新技能或小情趣",
         "如果可以瞬间学会一门手艺，你想学什么？",
         "你最喜欢的一处城市角落是哪里？",
-        "你最想尝试的一道异国料理",
-        "有没有一个习惯让你生活更有情趣？"
         "你做过最拿手的一道菜是什么？",
         "如果明天不用上班/上学，你最想做什么？",
         "分享一个让你笑出声的短视频或段子",
@@ -433,17 +415,29 @@
         "如果给你一整天空闲，你会怎么安排？"
       ];
 
-      // 当前话题池
-      let topics = [];
+      let topics = [];                     // 完整话题库（默认+用户添加）
+      let remainingTopics = [];            // 当前轮未抽话题池
+      let stickCount = 8;                  // 筒内签子数量
+      let animating = false;                // 是否正在抽签动画
+      let showCard = false;                 // 是否显示卡片
+      let lastShakeTime = 0;                // 摇一摇防抖
 
-      // 加载存储的话题，合并默认
+      // ---------- 工具函数：洗牌 ----------
+      function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+
+      // ---------- 加载话题（合并本地存储）----------
       function loadTopics() {
         try {
           const stored = localStorage.getItem(STORAGE_KEY);
           if (stored) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length) {
-              // 与默认合并去重（保留默认+用户添加）
+              // 合并默认与用户添加，并去重
               const combined = [...DEFAULT_TOPICS, ...parsed];
               topics = [...new Set(combined)];
               return;
@@ -454,15 +448,24 @@
       }
       loadTopics();
 
-      // 保存话题（覆盖式存储全部，但保留默认和用户添加的合并结果）
+      // 初始化剩余话题池（打乱顺序）
+      function resetRemainingTopics() {
+        remainingTopics = [...topics];
+        shuffleArray(remainingTopics);
+      }
+      resetRemainingTopics();
+
+      // 保存话题（用户添加）
       function saveTopicsToStorage(newTopicsArray) {
-        // 与当前合并去重
+        // 合并去重
         const merged = [...topics, ...newTopicsArray];
         topics = [...new Set(merged)];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(topics));
+        // 重置剩余池，让新话题立即参与抽签
+        resetRemainingTopics();
       }
 
-      // ----- 页面元素 -----
+      // ---------- DOM 元素 ----------
       const homePage = document.getElementById('homePage');
       const addPage = document.getElementById('addPage');
       const navItems = document.querySelectorAll('.nav-item');
@@ -475,31 +478,22 @@
       const saveBtn = document.getElementById('saveTopicsBtn');
       const backHomeBtn = document.getElementById('backHomeBtn');
 
-      // 当前状态
-      let stickCount = 8;                // 筒内签子数量
-      let animating = false;             // 是否正在抽签动画
-      let showCard = false;              // 是否显示卡片
-      let currentTopic = '';             // 当前抽到的话题
-      let lastShakeTime = 0;
-
-      // 渲染签子
+      // ---------- 渲染签子 ----------
       function renderSticks() {
         let html = '';
         for (let i = 0; i < stickCount; i++) {
-          // 随机高度，但为了美观稍微变化
           const height = 45 + (i % 3) * 8; // 45~69px
-          const left = 20 + i * 12; // 错开位置
+          const left = 20 + i * 12;
           html += `<div class="stick" style="height: ${height}px; left: ${left}px; bottom: 10px;"></div>`;
         }
         sticksContainer.innerHTML = html;
       }
 
-      // 显示卡片
+      // ---------- 显示卡片 ----------
       function showTopicCard(topic) {
         if (showCard) return;
         showCard = true;
 
-        // 创建遮罩
         const mask = document.createElement('div');
         mask.className = 'card-mask';
         mask.id = 'topicCardMask';
@@ -511,17 +505,16 @@
         `;
         document.getElementById('app').appendChild(mask);
 
-        // 绑定收起事件
         document.getElementById('closeCardBtn').addEventListener('click', function() {
           mask.remove();
           showCard = false;
-          // 重置签筒数量（如果抽完了就补满，视觉上恢复8根）
+          // 重置签子数量（每次收起来后恢复为8根）
           if (stickCount <= 0) stickCount = 8;
           renderSticks();
         });
       }
 
-      // 抽签核心逻辑
+      // ---------- 抽签核心 ----------
       function performDraw() {
         if (animating || showCard) return;
         if (topics.length === 0) {
@@ -531,61 +524,53 @@
 
         animating = true;
 
-        // 随机选话题
-        const randomIndex = Math.floor(Math.random() * topics.length);
-        const pickedTopic = topics[randomIndex];
+        // 不重复抽取逻辑：如果剩余池为空，则重置并开始新的一轮
+        if (remainingTopics.length === 0) {
+          remainingTopics = [...topics];
+          shuffleArray(remainingTopics);
+          console.log('✨ 新的一轮话题开始');
+        }
+        const pickedTopic = remainingTopics.pop(); // 取出一个话题
 
-        // 减少一根签子 (最少0)
+        // 减少一根签子
         if (stickCount > 0) {
           stickCount--;
         }
         renderSticks();
 
-        // 创建飞签动画 (基于桶的位置)
+        // 飞签动画
         const bucketRect = bucketWrapper.getBoundingClientRect();
         const flyStick = document.createElement('div');
         flyStick.className = 'fly-stick';
-        // 设置起始位置在桶上方
         flyStick.style.left = (bucketRect.left + 130) + 'px';
         flyStick.style.top = (bucketRect.top + 100) + 'px';
         flyStick.style.position = 'fixed';
         document.body.appendChild(flyStick);
-
-        // 动画结束后移除飞签
         flyStick.addEventListener('animationend', function() {
           flyStick.remove();
         });
 
-        // 延迟400ms后显示卡片 (配合动画)
+        // 延迟显示卡片（配合动画）
         setTimeout(() => {
-          // 显示卡片
           showTopicCard(pickedTopic);
           animating = false;
-        }, 450); // 略大于动画时长
+        }, 450);
       }
 
-      // 重置状态 (比如收起来后已经处理，但额外提供)
-      function resetAfterClose() {
-        // do nothing, 卡片关闭时已重置
-      }
-
-      // 监听摇一摇
+      // ---------- 摇一摇监听 ----------
       function handleDeviceMotion(event) {
         const acceleration = event.accelerationIncludingGravity;
         if (!acceleration) return;
         const now = Date.now();
-        const delta = 300; // 节流
-        if (now - lastShakeTime < delta) return;
+        if (now - lastShakeTime < 300) return; // 节流
 
         const { x, y, z } = acceleration;
-        // 检测剧烈晃动 (阈值调低一点便于测试)
         if (Math.abs(x) > 12 || Math.abs(y) > 12 || Math.abs(z) > 12) {
           lastShakeTime = now;
           performDraw();
         }
       }
 
-      // 添加摇一摇监听 (需用户交互？直接挂载)
       if (window.DeviceMotionEvent) {
         window.addEventListener('devicemotion', handleDeviceMotion);
       } else {
@@ -598,7 +583,7 @@
         performDraw();
       });
 
-      // 导航切换
+      // ---------- 导航切换 ----------
       navItems.forEach(item => {
         item.addEventListener('click', function() {
           const page = this.dataset.page;
@@ -611,7 +596,7 @@
           } else {
             homePage.classList.remove('active');
             addPage.classList.add('active');
-            // 刷新预览（清空）
+            // 清空预览
             updatePreview();
           }
         });
@@ -619,11 +604,10 @@
 
       // 返回首页按钮
       backHomeBtn.addEventListener('click', function() {
-        // 切换到首页导航
-        navItems[0].click();
+        navItems[0].click(); // 切换到抽签页
       });
 
-      // 输入框预览
+      // ---------- 添加话题预览 ----------
       topicInput.addEventListener('input', function(e) {
         updatePreview(e.target.value);
       });
@@ -649,42 +633,21 @@
           return;
         }
 
-        // 去重合并
         saveTopicsToStorage(lines);
 
-        // 提示成功
-        alert(`已添加 ${lines.length} 条话题`);
+        alert(`✅ 已添加 ${lines.length} 条话题`);
 
         // 清空输入框和预览
         topicInput.value = '';
         previewArea.style.display = 'none';
         previewList.innerHTML = '';
 
-        // 切换到首页 (可选)
-        // 不自动跳转，让用户手动选择
+        // 可选择自动切回首页，但保留让用户手动切换
       });
 
       // 初始化渲染
       renderSticks();
-
-      // 如果抽签过程中有人为点击卡片关闭，同步状态
-      // (卡片关闭事件由动态按钮处理，已在showTopicCard中处理移除并重置)
-
-      // 额外处理: 如果stickCount变为0，用户关闭卡片后我们会重置为8（已在卡片关闭时处理）
-      // 但是防止卡片未关闭但签筒空了的情况，在卡片关闭时重置
-
-      // 清理摇一摇 (页面卸载时)
-      window.addEventListener('beforeunload', function() {
-        window.removeEventListener('devicemotion', handleDeviceMotion);
-      });
-
-      // 由于演示需要，手动补充一些话题 (确保初始话题存在)
-      // 已加载
-
-      // 为nav点击增加活跃样式的默认行为
     })();
   </script>
 </body>
-
 </html>
-
